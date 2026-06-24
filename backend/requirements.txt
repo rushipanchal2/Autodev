@@ -1,0 +1,10 @@
+# Core agents + graph
+langgraph>=0.2
+langchain>=0.3
+langchain-openai>=0.2
+pydantic>=2
+python-dotenv>=1
+
+# Phase 4: API layer
+fastapi>=0.110
+uvicorn>=0.29

@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+.claude
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project output
+backend/output/*
+!backend/output/.gitkeep
+!backend/output/README.md
+
+# Test artefacts
+.pytest_cache/
+.coverage
+htmlcov/
