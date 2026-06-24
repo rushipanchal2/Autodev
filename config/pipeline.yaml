@@ -1,0 +1,18 @@
+# Autodev pipeline configuration.
+llm:
+  provider: anthropic
+  model: claude-opus-4-8
+  temperature: 0
+
+# Stages to run, in order. Comment out a stage to skip it.
+stages:
+  - requirements   # analyst
+  - prd            # pm
+  - architecture   # architect
+  - stories        # sm
+  - implementation # dev
+  - qa             # qa
+  - deployment     # devops
+
+# Block deployment unless QA passes.
+qa_gate: true
