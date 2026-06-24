@@ -46,7 +46,7 @@ Build a system where:
                                                   |
                                                   v
 +----------------------------------------------------------------------------+
-| 3. LANGGRAPH PIPELINE (graph/pipeline.py)                                   |
+| 3. LANGGRAPH PIPELINE (graph/orchestration.py)                              |
 |                                                                              |
 |   ENTRY                                                                     |
 |     |                                                                       |
@@ -225,16 +225,28 @@ class SDLCState(TypedDict):
 
 ---
 
-## 5. Suggested project structure
+## 5. Project structure
 
 ```
 sdlc-agent/                          ← repo root
+│
+├── .gitignore                       ← root-level ignore (venv, .env, output, IDE)
+├── LICENSE                          ← MIT
+├── README.md                        ← quick-start, env vars, phase table
+│
+├── docs/                            ← architecture documentation
+│   ├── 04_sdlc_multi_agent_architecture.md
+│   └── multi-agent-coding-system-architecture.md
 │
 ├── backend/                         ← FastAPI + LangGraph (Python)
 │   ├── .env                         ← AZURE_OPENAI_* vars (gitignored)
 │   ├── .env.example                 ← var name template
 │   ├── .gitignore
 │   ├── requirements.txt
+│   │
+│   ├── config/                      ← centralised settings
+│   │   ├── __init__.py
+│   │   └── settings.py              ← Settings class + get_settings() singleton
 │   │
 │   ├── main.py                      ← Phase 1: CLI entrypoint (invoke)
 │   ├── app.py                       ← Phase 4: FastAPI entrypoint (uvicorn)
@@ -247,9 +259,9 @@ sdlc-agent/                          ← repo root
 │   │
 │   ├── graph/
 │   │   ├── __init__.py
-│   │   ├── llm.py                   ← shared model (reads from .env)
+│   │   ├── llm.py                   ← shared model factory (reads from config)
 │   │   ├── state.py                 ← SDLCState TypedDict + Pydantic schemas
-│   │   ├── pipeline.py              ← StateGraph wiring
+│   │   ├── orchestration.py         ← StateGraph wiring (ba → dev → END)
 │   │   │
 │   │   ├── agents/
 │   │   │   ├── __init__.py
@@ -263,25 +275,37 @@ sdlc-agent/                          ← repo root
 │   │       ├── file_tools.py        ← read_file, write_file, list_dir
 │   │       └── repo_tools.py        ← grep_repo, apply_patch
 │   │
-│   └── output/                      ← generated greenfield code files
+│   ├── tests/                       ← pytest test suite
+│   │   ├── __init__.py
+│   │   ├── conftest.py              ← shared fixtures (sample_raw_input, sample_user_stories)
+│   │   ├── test_orchestration.py    ← graph wiring + end-to-end invoke tests
+│   │   ├── test_agents/
+│   │   │   ├── __init__.py
+│   │   │   ├── test_ba_agent.py
+│   │   │   ├── test_dev_agent.py
+│   │   │   └── test_qe_agent.py     ← skipped until Phase 2
+│   │   └── test_api/
+│   │       ├── __init__.py
+│   │       └── test_sdlc.py         ← skipped until Phase 4
+│   │
+│   └── output/                      ← generated greenfield code (gitignored)
+│       └── .gitkeep
 │
-├── frontend/                        ← React + Vite (Phase 4)
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── InputForm.tsx        ← SASVA fields → POST /run-sdlc
-│   │   │   ├── ResultTabs.tsx       ← stories / code / tests / feedback tabs
-│   │   │   └── ProgressFeed.tsx     ← SSE live progress events
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── package.json
-│   └── vite.config.ts
-│
-└── README.md
+└── frontend/                        ← React + Vite (Phase 4, not yet created)
+    ├── src/
+    │   ├── components/
+    │   │   ├── InputForm.tsx        ← SASVA fields → POST /run-sdlc
+    │   │   ├── ResultTabs.tsx       ← stories / code / tests / feedback tabs
+    │   │   └── ProgressFeed.tsx     ← SSE live progress events
+    │   ├── App.tsx
+    │   └── main.tsx
+    ├── package.json
+    └── vite.config.ts
 ```
 
-> **Phase mapping**: `backend/` is runnable from Phase 1 as a CLI (`main.py`).
-> `api/` and `frontend/` are created as stubs now and activated in Phase 4.
+> **Phase mapping**: `backend/` is runnable from Phase 1 as a CLI (`python main.py`).
+> `api/` and `frontend/` are stubs activated in Phase 4.
+> Run tests at any phase with `cd backend && pytest tests/ -v`.
 
 ---
 
@@ -298,11 +322,14 @@ sample `raw_input`. No frontend, no API, no QE, no loops.
 
 **Component architecture**:
 ```
-sdlc_agents/
-├── .env / .env.example       --> OPENAI_API_KEY
+backend/
+├── .env / .env.example        --> AZURE_OPENAI_* vars
+├── config/
+│   └── settings.py            --> Settings singleton (loaded once at startup)
 │
 ├── graph/
-│   ├── state.py              --> SDLCState (TypedDict), UserStory (pydantic)
+│   ├── state.py               --> SDLCState (TypedDict), UserStory/CodeChanges (pydantic)
+│   ├── llm.py                 --> get_model() reads from config.settings
 │   │
 │   ├── agents/
 │   │   ├── ba_agent.py        --> LLM #1 (ChatOpenAI)
@@ -313,10 +340,17 @@ sdlc_agents/
 │   │         in : user_stories
 │   │         out: code_changes (structured: {path: content})
 │   │
-│   └── pipeline.py            --> StateGraph wiring: ba -> dev -> END
+│   └── orchestration.py       --> StateGraph wiring: ba -> dev -> END
 │
-├── main.py                    --> loads .env, runs app.invoke(), writes output/
-└── output/                    --> generated greenfield code files
+├── tests/                     --> pytest suite (mocked LLM calls)
+│   ├── conftest.py
+│   ├── test_orchestration.py
+│   └── test_agents/
+│       ├── test_ba_agent.py
+│       └── test_dev_agent.py
+│
+├── main.py                    --> CLI: loads .env, runs app.invoke(), writes output/
+└── output/                    --> generated greenfield code files (gitignored)
 ```
 
 **Data flow**:

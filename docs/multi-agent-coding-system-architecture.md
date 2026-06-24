@@ -334,11 +334,23 @@ sequenceDiagram
 ```
 sdlc-agent/                          ← repo root
 │
+├── .gitignore                       ← root-level ignore (venv, .env, output, IDE)
+├── LICENSE                          ← MIT
+├── README.md                        ← quick-start, env vars, phase table
+│
+├── docs/                            ← architecture documentation
+│   ├── 04_sdlc_multi_agent_architecture.md
+│   └── multi-agent-coding-system-architecture.md
+│
 ├── backend/                         ← FastAPI + LangGraph (Python)
 │   ├── .env                         ← AZURE_OPENAI_* vars (gitignored)
 │   ├── .env.example                 ← var name template
 │   ├── .gitignore
 │   ├── requirements.txt
+│   │
+│   ├── config/                      ← centralised settings
+│   │   ├── __init__.py
+│   │   └── settings.py              ← Settings class + get_settings() singleton
 │   │
 │   ├── main.py                      ← Phase 1: CLI entrypoint (invoke)
 │   ├── app.py                       ← Phase 4: FastAPI entrypoint (uvicorn)
@@ -351,9 +363,9 @@ sdlc-agent/                          ← repo root
 │   │
 │   ├── graph/
 │   │   ├── __init__.py
-│   │   ├── llm.py                   ← shared model (reads from .env)
+│   │   ├── llm.py                   ← shared model factory (reads from config)
 │   │   ├── state.py                 ← SDLCState TypedDict + Pydantic schemas
-│   │   ├── pipeline.py              ← StateGraph wiring
+│   │   ├── orchestration.py         ← StateGraph wiring (ba → dev → END)
 │   │   │
 │   │   ├── agents/
 │   │   │   ├── __init__.py
@@ -367,27 +379,40 @@ sdlc-agent/                          ← repo root
 │   │       ├── file_tools.py        ← read_file, write_file, list_dir
 │   │       └── repo_tools.py        ← grep_repo, apply_patch
 │   │
-│   └── output/                      ← generated greenfield code files
+│   ├── tests/                       ← pytest test suite
+│   │   ├── __init__.py
+│   │   ├── conftest.py              ← shared fixtures
+│   │   ├── test_orchestration.py    ← graph wiring + end-to-end invoke tests
+│   │   ├── test_agents/
+│   │   │   ├── __init__.py
+│   │   │   ├── test_ba_agent.py
+│   │   │   ├── test_dev_agent.py
+│   │   │   └── test_qe_agent.py     ← skipped until Phase 2
+│   │   └── test_api/
+│   │       ├── __init__.py
+│   │       └── test_sdlc.py         ← skipped until Phase 4
+│   │
+│   └── output/                      ← generated greenfield code (gitignored)
+│       └── .gitkeep
 │
-├── frontend/                        ← React + Vite (Phase 4)
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── InputForm.tsx        ← SASVA fields → POST /run-sdlc
-│   │   │   ├── ResultTabs.tsx       ← stories / code / tests / feedback tabs
-│   │   │   └── ProgressFeed.tsx     ← SSE live progress events
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── package.json
-│   └── vite.config.ts
-│
-└── README.md
+└── frontend/                        ← React + Vite (Phase 4, not yet created)
+    ├── src/
+    │   ├── components/
+    │   │   ├── InputForm.tsx        ← SASVA fields → POST /run-sdlc
+    │   │   ├── ResultTabs.tsx       ← stories / code / tests / feedback tabs
+    │   │   └── ProgressFeed.tsx     ← SSE live progress events
+    │   ├── App.tsx
+    │   └── main.tsx
+    ├── package.json
+    └── vite.config.ts
 ```
 
 | Layer | Maps to section | Phase |
 |---|---|---|
+| `backend/config/` | Settings + credential management | 1–4 |
 | `backend/graph/agents/` | §3 Analysis + Code-Gen agents | 1–4 |
 | `backend/graph/tools/` | §3 Tooling layer (agentic search, file I/O) | 3 |
+| `backend/tests/` | Verification at each phase | 1–4 |
 | `backend/api/` | §2 Orchestration layer (HTTP + SSE) | 4 |
 | `frontend/` | §2 end-to-end pipeline (SASVA form + results) | 4 |
 
